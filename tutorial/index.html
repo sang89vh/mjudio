@@ -124,7 +124,7 @@ your plan allows:</p>
   "rendererAvailable": true,
   "projectCount": 4,
   "remainingFreeExportsToday": 2,
-  "maxResolution": "720p",
+  "maxResolution": "p720",
   "addsWatermark": true,
   "pendingExports": 0,
   "openInEditor": []
@@ -238,11 +238,18 @@ queued. <code>resolution</code> takes <code>720p</code>, <code>1080p</code>,
 <code>hevc</code>. Every field is optional; anything you leave out is inherited from the
 project's last export.</p>
 
+<p><strong>Resolution reads back in a different spelling than it is written.</strong> Requests
+accept the friendly forms above, but every reply — <code>maxResolution</code> in
+<code>/v1/health</code>, <code>settings.resolution</code> on a job — serialises the internal
+name: <code>p720</code>, <code>p1080</code>, <code>p1440</code>, <code>p2160</code>. Compare
+against those when you check what you got.</p>
+
 <p><strong>Read the <code>settings</code> object in the reply rather than assuming you got
 what you asked for.</strong> Requests above your plan's ceiling are <em>clamped, not
-refused</em> — ask for 2160p HEVC on the free plan and the job comes back as 720p H.264 with
-<code>"watermark": true</code>, and <code>omitsPremiumLayers</code> tells you whether
-Premium-only layers were dropped from the render.</p>
+refused</em> — ask for 2160p HEVC on the free plan and the job comes back as
+<code>"resolution": "p720"</code>, <code>"codec": "h264"</code> and
+<code>"watermark": true</code>. <code>omitsPremiumLayers</code> tells you whether Premium-only
+layers were dropped from the render.</p>
 
 <h3>Step 6 — Wait for it</h3>
 
@@ -390,8 +397,9 @@ class Mjudio:
 if __name__ == "__main__":
     app = Mjudio()
     status = app.health()
+    # The field is absent on Premium, so .get() rather than [].
     print("plan:", status["plan"], "| exports left today:",
-          status["remainingFreeExportsToday"])
+          status.get("remainingFreeExportsToday", "unlimited"))
 
     for track in sorted(pathlib.Path("tracks").glob("*.mp3")):
         project = app.create(track.stem, "lofi-dusk", "portrait9x16")
@@ -517,7 +525,9 @@ would refuse.</p>
 720p, adds a watermark, holds a limited number of projects at once and runs one export at a
 time. Those numbers are configuration and can change, so trust <code>GET /v1/health</code>
 (<code>plan</code>, <code>maxResolution</code>, <code>addsWatermark</code>,
-<code>remainingFreeExportsToday</code>) over any number printed on this page.</p>
+<code>remainingFreeExportsToday</code>) over any number printed on this page. On Premium,
+<code>remainingFreeExportsToday</code> is absent rather than a large number — there is no
+allowance to count down.</p>
 
 <p>Premium-only <em>layers</em> behave differently from Premium templates: a free export does
 not fail, it renders without them, and the job reports
