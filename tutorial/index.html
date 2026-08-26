@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation API — Mjudio</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="../">Mjudio <span>— Music Studio Visualizer</span></a>
+  <nav class="pages">
+    <a href="../terms/">Terms of Service</a>
+    <a href="../privacy/">Privacy Policy</a>
+    <a href="../faq/">FAQ</a>
+    <a href="../tutorial/">Automation API</a>
+  </nav>
+</header>
+
+<h1>Automation API</h1>
+<p class="lede">Drive Mjudio from a script: create a project from a template, give it a song,
+set the title, render the video and fetch the file back — without touching the app window.</p>
+<p class="updated">Updated 26 August 2026</p>
+
+<div class="card">
+  <p><strong>Where it lives.</strong> The API is a small REST server that runs
+  <em>inside</em> Mjudio, on your own machine, and answers only on
+  <code>127.0.0.1</code>. It is <strong>off until you switch it on</strong> in
+  <strong>Mjudio ▸ Settings ▸ Automation</strong>, and every request has to carry a token that
+  the same screen shows you. Nothing outside your Mac can reach it — not a web page, not
+  another machine on your network.</p>
+</div>
+
+<h2>On this page</h2>
+<ul>
+  <li><a href="#turn-it-on">1. Turn it on</a></li>
+  <li><a href="#connect">2. Find the address and the token</a></li>
+  <li><a href="#first-call">3. Your first call</a></li>
+  <li><a href="#walkthrough">4. A whole video, step by step</a></li>
+  <li><a href="#bash">5. The same thing as one shell script</a></li>
+  <li><a href="#python">6. A Python client for batch work</a></li>
+  <li><a href="#reference">7. Endpoint reference</a></li>
+  <li><a href="#errors">8. When something goes wrong</a></li>
+  <li><a href="#limits">9. Plans, limits and the watermark</a></li>
+  <li><a href="#boundaries">10. What it deliberately will not do</a></li>
+  <li><a href="#iphone">11. On iPhone and iPad</a></li>
+</ul>
+
+<h2 id="turn-it-on">1. Turn it on</h2>
+
+<p>Open <strong>Mjudio ▸ Settings ▸ Automation</strong> and switch <strong>Enable local
+automation API</strong> on. The <strong>Status</strong> row then shows the address the server is
+listening on:</p>
+
+<pre><code>http://127.0.0.1:8787</code></pre>
+
+<p>Two more controls on that screen matter:</p>
+
+<ul>
+  <li><strong>Port</strong> — 8787 by default. Type another number and press
+  <strong>Apply</strong> if something else on your Mac already uses it. Because the port can
+  change, scripts should read the address rather than hard-code it (see below).</li>
+  <li><strong>Token</strong> — hidden behind <strong>Show</strong>, with <strong>Copy</strong>
+  next to it. <strong>Regenerate</strong> mints a new one; any script still holding the old
+  token starts getting <code>401</code> on its very next request, mid-loop.</li>
+</ul>
+
+<p>Turning the switch off stops the server and deletes the discovery file described next.</p>
+
+<h2 id="connect">2. Find the address and the token</h2>
+
+<p>For a quick experiment, press <strong>Copy</strong> in Settings and paste the token into
+your shell:</p>
+
+<pre><code>BASE=http://127.0.0.1:8787
+AUTH="Authorization: Bearer paste-the-token-here"</code></pre>
+
+<p>For anything you intend to run twice, read them instead from the discovery file the server
+writes when it starts. It is created with owner-only permissions in the app's own container:</p>
+
+<pre><code>~/Library/Containers/com.mjudio.musicvideomaker/Data/Library/Application Support/Mjudio/Automation/endpoint.json</code></pre>
+
+<pre><code>{
+  "baseURL": "http://127.0.0.1:8787",
+  "port": 8787,
+  "startedAt": "2026-08-26T09:12:04Z",
+  "token": "htxfgw…"
+}</code></pre>
+
+<p>On macOS you can jump straight to it: the Automation screen has a <strong>Show in
+Finder</strong> button for exactly this file.</p>
+
+<p>Every request carries the token in a header:</p>
+
+<pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+<p>If a client makes <code>Authorization</code> awkward, <code>X-Mjudio-Token: &lt;token&gt;</code>
+works identically.</p>
+
+<div class="card">
+  <p><strong>Two small traps.</strong> Write <code>127.0.0.1</code>, not
+  <code>localhost</code> — <code>localhost</code> may resolve to <code>::1</code> first and
+  take a detour before it connects. And the file being present is not proof the app is
+  running: a force-quit can leave it behind. Treat a <em>refused connection</em> as the
+  authoritative "Mjudio is not up".</p>
+</div>
+
+<h2 id="first-call">3. Your first call</h2>
+
+<p><code>GET /v1/health</code> tells you the app is listening, the token is right, and what
+your plan allows:</p>
+
+<pre><code>curl -s -H "$AUTH" "$BASE/v1/health"</code></pre>
+
+<pre><code>{
+  "status": "ok",
+  "app": "Mjudio",
+  "version": "1.0",
+  "build": "20260826.091204",
+  "apiVersion": 1,
+  "plan": "free",
+  "rendererAvailable": true,
+  "projectCount": 4,
+  "remainingFreeExportsToday": 2,
+  "maxResolution": "720p",
+  "addsWatermark": true,
+  "pendingExports": 0,
+  "openInEditor": []
+}</code></pre>
+
+<p>Read those last six fields before you build anything on top: they are the difference
+between a script that renders what you asked for and one that quietly renders something
+smaller. <code>openInEditor</code> lists the projects an editor window currently holds —
+writes to those are refused, which is the next section's subject.</p>
+
+<h3>The one rule that surprises people</h3>
+
+<p>A project that is <strong>open in an editor window</strong> cannot be written to by the
+API. The window holds its own copy of the document and rewrites the whole bundle on its next
+autosave, so a background edit underneath it would simply vanish. Any write to such a project
+returns:</p>
+
+<pre><code>409 {"error": "project_open_in_editor", "message": "…"}</code></pre>
+
+<p>Reads always work. Close the window (or work on a project you created from the script) and
+the writes go through.</p>
+
+<h2 id="walkthrough">4. A whole video, step by step</h2>
+
+<h3>Step 1 — Pick a template</h3>
+
+<p>Templates are the look: background, palette, visualizer and text layout, already composed.
+List them with <code>GET /v1/templates</code>, which returns an <code>id</code>,
+<code>name</code>, <code>category</code>, <code>premium</code> flag and the
+<code>designedFor</code> aspect ratio for each. Free-plan starters include
+<code>lofi-dusk</code>, <code>edm-pulse</code>, <code>hiphop-gold</code>,
+<code>lyric-classic</code> and <code>podcast-studio</code>.</p>
+
+<h3>Step 2 — Create the project</h3>
+
+<pre><code>curl -s -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"name":"Night Drive","templateID":"lofi-dusk","aspectRatio":"portrait9x16"}' \
+  "$BASE/v1/projects"</code></pre>
+
+<p><code>201</code> comes back with the whole project, including the layers the template
+created and their ids — you need one of those in step 4. <code>aspectRatio</code> is
+<code>landscape16x9</code>, <code>portrait9x16</code> or <code>square1x1</code>, and an
+explicit value wins over the template's own design ratio: every coordinate in a Mjudio project
+is stored as a fraction of the canvas, so a landscape template <em>rescales</em> into a
+portrait frame rather than breaking.</p>
+
+<h3>Step 3 — Send the music</h3>
+
+<pre><code>curl -s -X PUT -H "$AUTH" --data-binary @song.mp3 \
+  "$BASE/v1/projects/$PID/audio?filename=song.mp3"</code></pre>
+
+<p>The audio goes in as <strong>raw bytes in the request body</strong>. There is no endpoint
+that takes a file path, and that is not an oversight: Mjudio is sandboxed and may only open
+files <em>you</em> picked in a panel, so a path your script sends is a path the app is not
+allowed to open.</p>
+
+<p><code>?filename=</code> is how the decoder learns the format, so keep the real extension.
+(<code>Content-Disposition: attachment; filename="…"</code> works as an alternative.)</p>
+
+<div class="card">
+  <p><strong>This call blocks, on purpose.</strong> It does not return until the frequency
+  analysis has been computed and cached in the project. That cache is what every visualizer
+  reads at render time — <strong>without it the bars and rings render flat</strong>. A
+  three-minute track takes a few seconds; give your HTTP client a generous timeout (a minute
+  is plenty, ten is safer for long mixes).</p>
+</div>
+
+<p>Accepted: <code>mp3</code>, <code>wav</code>, <code>m4a</code>, <code>aac</code>,
+<code>aif</code>, <code>aiff</code>, <code>aifc</code>, <code>caf</code>, <code>flac</code>,
+and audio inside <code>mp4</code> and <code>m4b</code>. Up to 4 hours per track. OGG/Vorbis is
+absent because macOS has no decoder for it.</p>
+
+<h3>Step 4 — Set the words and the cover art</h3>
+
+<p>Text layers are edited by id. Take the id from the project you got back in step 2:</p>
+
+<pre><code>curl -s -X PATCH -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"text":"Night Drive"}' \
+  "$BASE/v1/projects/$PID/layers/$LAYER_ID"</code></pre>
+
+<p>The same call accepts <code>name</code>, <code>hidden</code> and <code>opacity</code>.
+Sending <code>text</code> to a layer that is not a text layer returns
+<code>409 not_a_text_layer</code>.</p>
+
+<p>Timed lyrics go in as a whole file — <code>.lrc</code>, <code>.srt</code> or plain text,
+one line per line:</p>
+
+<pre><code>curl -s -X POST -H "$AUTH" --data-binary @lyrics.lrc \
+  "$BASE/v1/projects/$PID/lyrics?format=lrc"</code></pre>
+
+<p>And artwork becomes the full-canvas backdrop, replacing whatever was there:</p>
+
+<pre><code>curl -s -X PUT -H "$AUTH" --data-binary @cover.jpg \
+  "$BASE/v1/projects/$PID/artwork?filename=cover.jpg"</code></pre>
+
+<p>Trim and fades are project settings rather than layer settings, so they go through
+<code>PATCH /v1/projects/{id}</code>: <code>trimStartSeconds</code>,
+<code>trimEndSeconds</code>, <code>fadeInSeconds</code>, <code>fadeOutSeconds</code>. Fades cap
+at 5 seconds, and trimming needs the audio to be uploaded first.</p>
+
+<h3>Step 5 — Render</h3>
+
+<pre><code>curl -s -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"resolution":"1080p","frameRate":30,"codec":"hevc"}' \
+  "$BASE/v1/projects/$PID/exports"</code></pre>
+
+<p><code>202</code> comes back immediately with a job — the render itself has only been
+queued. <code>resolution</code> takes <code>720p</code>, <code>1080p</code>,
+<code>1440p</code> or <code>2160p</code> (<code>4K</code> also works),
+<code>frameRate</code> is 30 or 60, <code>codec</code> is <code>h264</code> or
+<code>hevc</code>. Every field is optional; anything you leave out is inherited from the
+project's last export.</p>
+
+<p><strong>Read the <code>settings</code> object in the reply rather than assuming you got
+what you asked for.</strong> Requests above your plan's ceiling are <em>clamped, not
+refused</em> — ask for 2160p HEVC on the free plan and the job comes back as 720p H.264 with
+<code>"watermark": true</code>, and <code>omitsPremiumLayers</code> tells you whether
+Premium-only layers were dropped from the render.</p>
+
+<h3>Step 6 — Wait for it</h3>
+
+<pre><code>curl -s -H "$AUTH" "$BASE/v1/exports/$JOB_ID"</code></pre>
+
+<p><code>status</code> moves <code>queued → running → completed</code> (or <code>failed</code>
+or <code>cancelled</code>), alongside <code>progress</code> from 0 to 1 and
+<code>estimatedSecondsRemaining</code>. There are no webhooks — poll every couple of seconds.
+A <code>DELETE</code> on a running job cancels it.</p>
+
+<p>Rendering keeps the Mac awake for the duration, and closing the main window does not stop
+it. Quitting the app does.</p>
+
+<h3>Step 7 — Collect the file, then clean up</h3>
+
+<pre><code>curl -s -H "$AUTH" -o night-drive.mp4 "$BASE/v1/exports/$JOB_ID/file"
+curl -s -X DELETE -H "$AUTH" "$BASE/v1/exports/$JOB_ID"</code></pre>
+
+<p>The video is streamed back over HTTP because it was written <em>inside</em> the app's
+container, which your script cannot browse. Fetching it before the job is
+<code>completed</code> returns <code>409 export_not_ready</code>.</p>
+
+<p>The <code>DELETE</code> matters: finished exports sit in the container and are
+<strong>not</strong> cleaned up on their own. Delete each job once you have the bytes, or a
+nightly batch will fill your disk with videos you already downloaded.</p>
+
+<h2 id="bash">5. The same thing as one shell script</h2>
+
+<p>Nothing but <code>curl</code> and the <code>python3</code> that ships with macOS, used only
+to pick fields out of JSON:</p>
+
+<pre><code>#!/bin/bash
+set -euo pipefail
+
+CFG=~/Library/Containers/com.mjudio.musicvideomaker/Data/Library/Application\ Support/Mjudio/Automation/endpoint.json
+BASE=$(python3 -c "import json;print(json.load(open('$CFG'))['baseURL'])")
+AUTH="Authorization: Bearer $(python3 -c "import json;print(json.load(open('$CFG'))['token'])")"
+
+# 1. A project built on a template, in portrait
+PID=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"name":"Night Drive","templateID":"lofi-dusk","aspectRatio":"portrait9x16"}' \
+  "$BASE/v1/projects" | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+
+# 2. The music. Blocks while the track is analysed.
+curl -s -X PUT -H "$AUTH" --data-binary @song.mp3 \
+  "$BASE/v1/projects/$PID/audio?filename=song.mp3" &gt;/dev/null
+
+# 3. The title, by layer id
+LAYER=$(curl -s -H "$AUTH" "$BASE/v1/projects/$PID" \
+  | python3 -c 'import json,sys;print([l["id"] for l in json.load(sys.stdin)["layers"] if l["kind"]=="text"][0])')
+curl -s -X PATCH -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"text":"Night Drive"}' "$BASE/v1/projects/$PID/layers/$LAYER" &gt;/dev/null
+
+# 4. Render
+JID=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' \
+  -d '{"resolution":"1080p","codec":"hevc"}' \
+  "$BASE/v1/projects/$PID/exports" | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+
+# 5. Wait. Read the status field rather than grepping the whole reply, and give up
+#    on a job that will never finish.
+while :; do
+  STATUS=$(curl -s -H "$AUTH" "$BASE/v1/exports/$JID" \
+    | python3 -c 'import json,sys;print(json.load(sys.stdin)["status"])')
+  [[ $STATUS == completed ]] &amp;&amp; break
+  [[ $STATUS == failed || $STATUS == cancelled ]] &amp;&amp; { echo "export $STATUS" &gt;&amp;2; exit 1; }
+  sleep 2
+done
+
+# 6. Collect the file, then delete the job so the container does not fill up
+curl -s -H "$AUTH" -o night-drive.mp4 "$BASE/v1/exports/$JID/file"
+curl -s -X DELETE -H "$AUTH" "$BASE/v1/exports/$JID"</code></pre>
+
+<h2 id="python">6. A Python client for batch work</h2>
+
+<p>One video per track in <code>./tracks</code>. Standard library only — no packages to
+install:</p>
+
+<pre><code>"""Render one Mjudio video per track in ./tracks."""
+import json, pathlib, time, urllib.error, urllib.parse, urllib.request
+
+CONFIG = pathlib.Path.home() / (
+    "Library/Containers/com.mjudio.musicvideomaker/Data/Library/"
+    "Application Support/Mjudio/Automation/endpoint.json")
+
+
+class Mjudio:
+    def __init__(self):
+        config = json.loads(CONFIG.read_text())   # also proves the app is running
+        self.base, self.token = config["baseURL"], config["token"]
+
+    def raw(self, method, path, body=None, content_type="application/json"):
+        """Every call goes through here, so the token is never forgotten."""
+        data = json.dumps(body).encode() if isinstance(body, (dict, list)) else body
+        request = urllib.request.Request(self.base + path, data=data, method=method)
+        request.add_header("Authorization", f"Bearer {self.token}")
+        if data:
+            request.add_header("Content-Type", content_type)
+        try:
+            with urllib.request.urlopen(request, timeout=600) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            detail = json.loads(error.read() or b"{}")
+            raise RuntimeError(f"{error.code} {detail.get('error')}: "
+                               f"{detail.get('message')}") from None
+
+    def call(self, method, path, body=None, content_type="application/json"):
+        payload = self.raw(method, path, body, content_type)
+        return json.loads(payload) if payload else None      # DELETE answers 204, no body
+
+    def health(self):
+        return self.call("GET", "/v1/health")
+
+    def create(self, name, template_id, aspect="landscape16x9"):
+        return self.call("POST", "/v1/projects",
+                         {"name": name, "templateID": template_id, "aspectRatio": aspect})
+
+    def set_audio(self, project_id, path):
+        # Blocks until the analysis is cached; without it visualizers render flat.
+        name = urllib.parse.quote(path.name)
+        return self.call("PUT", f"/v1/projects/{project_id}/audio?filename={name}",
+                         path.read_bytes(), "application/octet-stream")
+
+    def set_text(self, project_id, layer_id, text):
+        return self.call("PATCH", f"/v1/projects/{project_id}/layers/{layer_id}",
+                         {"text": text})
+
+    def export(self, project_id, **settings):
+        return self.call("POST", f"/v1/projects/{project_id}/exports", settings)
+
+    def wait(self, job_id, poll=2.0):
+        while True:
+            job = self.call("GET", f"/v1/exports/{job_id}")
+            if job["status"] in {"completed", "failed", "cancelled"}:
+                if job["status"] != "completed":
+                    raise RuntimeError(job.get("errorMessage") or job["status"])
+                return job
+            time.sleep(poll)
+
+    def download(self, job_id, destination):
+        # A plain GET: the reply is the MP4 itself, not JSON.
+        destination.write_bytes(self.raw("GET", f"/v1/exports/{job_id}/file"))
+        self.call("DELETE", f"/v1/exports/{job_id}")   # the container is not self-cleaning
+
+
+if __name__ == "__main__":
+    app = Mjudio()
+    status = app.health()
+    print("plan:", status["plan"], "| exports left today:",
+          status["remainingFreeExportsToday"])
+
+    for track in sorted(pathlib.Path("tracks").glob("*.mp3")):
+        project = app.create(track.stem, "lofi-dusk", "portrait9x16")
+        app.set_audio(project["id"], track)
+
+        title = next(layer for layer in project["layers"] if layer["kind"] == "text")
+        app.set_text(project["id"], title["id"], track.stem)
+
+        job = app.export(project["id"], resolution="1080p", codec="hevc")
+        app.wait(job["id"])
+        app.download(job["id"], pathlib.Path(f"{track.stem}.mp4"))
+        print("rendered", track.stem)</code></pre>
+
+<h2 id="reference">7. Endpoint reference</h2>
+
+<p>Everything lives under <code>/v1</code>. Replies are JSON unless noted.</p>
+
+<h3>Status and templates</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Call</th><th>What it does</th></tr>
+  <tr><td><code>GET /v1/health</code></td><td>Version, plan, renderer state, project count, exports left today, which projects are open in a window</td></tr>
+  <tr><td><code>GET /v1/templates</code></td><td>Every built-in template: <code>id</code>, <code>name</code>, <code>category</code>, <code>premium</code>, <code>designedFor</code></td></tr>
+</table>
+</div>
+
+<h3>Projects</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Call</th><th>What it does</th></tr>
+  <tr><td><code>GET /v1/projects</code></td><td>Summaries, newest first</td></tr>
+  <tr><td><code>POST /v1/projects</code></td><td><code>{name?, templateID?, aspectRatio?}</code> → <code>201</code> with the full project</td></tr>
+  <tr><td><code>GET /v1/projects/{id}</code></td><td>The full project, including its layers</td></tr>
+  <tr><td><code>PATCH /v1/projects/{id}</code></td><td><code>{name?, aspectRatio?, templateID?, trimStartSeconds?, trimEndSeconds?, fadeInSeconds?, fadeOutSeconds?}</code></td></tr>
+  <tr><td><code>DELETE /v1/projects/{id}</code></td><td><code>204</code></td></tr>
+</table>
+</div>
+
+<h3>Media and layers</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Call</th><th>What it does</th></tr>
+  <tr><td><code>PUT /v1/projects/{id}/audio?filename=song.mp3</code></td><td>Raw bytes. Embeds the track and runs the analysis before replying</td></tr>
+  <tr><td><code>PUT /v1/projects/{id}/artwork?filename=cover.jpg</code></td><td>Raw bytes. Becomes the full-canvas backdrop</td></tr>
+  <tr><td><code>POST /v1/projects/{id}/lyrics?format=lrc</code></td><td><code>.lrc</code>, <code>.srt</code> or <code>txt</code> as the body</td></tr>
+  <tr><td><code>PATCH /v1/projects/{id}/layers/{layerID}</code></td><td><code>{name?, text?, hidden?, opacity?}</code></td></tr>
+</table>
+</div>
+
+<h3>Exports</h3>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Call</th><th>What it does</th></tr>
+  <tr><td><code>POST /v1/projects/{id}/exports</code></td><td><code>{resolution?, frameRate?, codec?, audioBitrate?, fileName?}</code> → <code>202</code></td></tr>
+  <tr><td><code>GET /v1/exports</code></td><td>All jobs; <code>?projectID=&lt;uuid&gt;</code> filters</td></tr>
+  <tr><td><code>GET /v1/exports/{id}</code></td><td>One job: <code>status</code>, <code>progress</code>, <code>estimatedSecondsRemaining</code>, <code>settings</code></td></tr>
+  <tr><td><code>GET /v1/exports/{id}/file</code></td><td>The finished MP4, streamed</td></tr>
+  <tr><td><code>DELETE /v1/exports/{id}</code></td><td>Cancels a running job, or removes a finished one and deletes its file</td></tr>
+</table>
+</div>
+
+<h2 id="errors">8. When something goes wrong</h2>
+
+<p>Every non-2xx reply has the same shape. Branch on <code>error</code>, which is stable;
+<code>message</code> is prose and may be reworded.</p>
+
+<pre><code>{"error": "project_open_in_editor", "message": "…"}</code></pre>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Code</th><th>error</th><th>What to do</th></tr>
+  <tr><td>401</td><td>—</td><td>Missing or stale token. Re-read <code>endpoint.json</code>; the token may have been regenerated</td></tr>
+  <tr><td>403</td><td><code>premium_required</code></td><td>A Premium-only template on a free plan. Pick another <code>templateID</code></td></tr>
+  <tr><td>403</td><td><code>project_limit_reached</code></td><td>The free plan's project count is full. Delete a project</td></tr>
+  <tr><td>403</td><td><code>export_limit_reached</code></td><td>Today's free exports are used up. <code>remainingFreeExportsToday</code> in <code>/v1/health</code> is the counter</td></tr>
+  <tr><td>403</td><td><code>export_queue_busy</code></td><td>The free plan runs one export at a time. Wait for the running job</td></tr>
+  <tr><td>404</td><td><code>project_not_found</code>, <code>export_not_found</code>, <code>layer_not_found</code>, <code>template_not_found</code></td><td>Check the id — and that you have not deleted the job already</td></tr>
+  <tr><td>409</td><td><code>project_open_in_editor</code></td><td>Close the editor window, or script a different project</td></tr>
+  <tr><td>409</td><td><code>no_audio</code></td><td>Upload the track before trimming or exporting</td></tr>
+  <tr><td>409</td><td><code>not_a_text_layer</code></td><td><code>text</code> only applies to text layers</td></tr>
+  <tr><td>409</td><td><code>export_not_ready</code></td><td>The job has not finished. Keep polling</td></tr>
+  <tr><td>410</td><td><code>export_file_missing</code></td><td>The file is gone from the container — re-render</td></tr>
+  <tr><td>411 / 413</td><td>—</td><td>Send a <code>Content-Length</code> (no chunked encoding); bodies cap at 512 MB</td></tr>
+  <tr><td>415</td><td><code>unsupported_audio_format</code>, <code>unsupported_lyric_format</code></td><td>Check the <code>?filename=</code> extension or <code>?format=</code></td></tr>
+  <tr><td>422</td><td><code>unreadable_audio</code>, <code>analysis_failed</code>, <code>unreadable_image</code>, <code>no_lyric_lines</code></td><td>The file arrived but could not be decoded or parsed</td></tr>
+  <tr><td>500</td><td><code>internal_error</code></td><td>A bug. The <code>message</code> carries the underlying error</td></tr>
+</table>
+</div>
+
+<h3>Why a web page cannot call this</h3>
+
+<p>The most common surprise is a <code>403</code> from browser JavaScript that looks correct.
+That is deliberate. The server refuses any request carrying an <code>Origin</code> header,
+never sends CORS headers, and rejects a <code>Host</code> that is not a loopback literal — so
+a page you happen to be visiting cannot quietly drive your copy of Mjudio, and no DNS trick
+can point a hostname at it. Use a shell, a script or a native tool instead.</p>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Guard</th><th>Behaviour</th></tr>
+  <tr><td>Bind address</td><td><code>127.0.0.1</code> only, never the wildcard</td></tr>
+  <tr><td>Non-loopback peer</td><td>Connection dropped before a byte is read</td></tr>
+  <tr><td>Missing or wrong token</td><td><code>401</code>, after a deliberate delay</td></tr>
+  <tr><td>Any <code>Origin</code> header</td><td><code>403</code></td></tr>
+  <tr><td><code>Host</code> not a loopback literal</td><td><code>403</code></td></tr>
+  <tr><td>Chunked encoding</td><td><code>411</code> — send a <code>Content-Length</code></td></tr>
+  <tr><td>Body over 512 MB</td><td><code>413</code></td></tr>
+  <tr><td>More than 8 live connections</td><td>Refused</td></tr>
+</table>
+</div>
+
+<h2 id="limits">9. Plans, limits and the watermark</h2>
+
+<p>The API submits exports through the same code path as the <strong>Export</strong> button in
+the app, so the rules are identical either way. A script cannot obtain a render the app itself
+would refuse.</p>
+
+<p>As Mjudio ships today the free plan allows a handful of exports per day, caps resolution at
+720p, adds a watermark, holds a limited number of projects at once and runs one export at a
+time. Those numbers are configuration and can change, so trust <code>GET /v1/health</code>
+(<code>plan</code>, <code>maxResolution</code>, <code>addsWatermark</code>,
+<code>remainingFreeExportsToday</code>) over any number printed on this page.</p>
+
+<p>Premium-only <em>layers</em> behave differently from Premium templates: a free export does
+not fail, it renders without them, and the job reports
+<code>"omitsPremiumLayers": true</code>.</p>
+
+<h2 id="boundaries">10. What it deliberately will not do</h2>
+
+<ul>
+  <li><strong>No file paths, in either direction.</strong> Media goes in as bytes and videos
+  come out over HTTP, because a sandboxed app cannot open a path a script hands it.</li>
+  <li><strong>No fine-grained design.</strong> Layer geometry, keyframes, palettes, effects
+  and scenes are not exposed. Build the look once as a template inside the app, then apply it
+  by <code>templateID</code> — that is the intended workflow, not a workaround.</li>
+  <li><strong>No purchases</strong>, and nothing that would open a file panel.</li>
+  <li><strong>No webhooks.</strong> Export progress is polled.</li>
+</ul>
+
+<h2 id="iphone">11. On iPhone and iPad</h2>
+
+<p>The same server is in the iOS app and the same endpoints work, with one practical
+difference: loopback means <em>that device</em>. An iPhone's automation server is reachable
+only from software running on the iPhone itself — typing <code>127.0.0.1:8787</code> into a
+browser on your Mac addresses the Mac and is refused. There is also no
+<code>endpoint.json</code> you can open on iOS, so copy the token from
+<strong>Settings ▸ Automation</strong>. And because iOS suspends a backgrounded app, sending
+Mjudio to the background stops the server until you return to it.</p>
+
+<h2>Still stuck?</h2>
+
+<ul>
+  <li>Email: <a href="mailto:sang89vh@icloud.com">sang89vh@icloud.com</a></li>
+  <li>Phone: <a href="tel:+84356054323">+84 356 054 323</a></li>
+</ul>
+
+<p>The Automation screen also shows a request counter and the last request the server
+answered — the quickest way to tell "my script never arrived" from "it arrived and was
+rejected".</p>
+
+<footer>
+  <p>Mjudio — Music Studio Visualizer ·
+     <a href="../terms/">Terms</a> ·
+     <a href="../privacy/">Privacy</a> ·
+     <a href="../faq/">FAQ</a> ·
+     <a href="../tutorial/">Automation API</a></p>
+</footer>
+
+</div>
+</body>
+</html>
