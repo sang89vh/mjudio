@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mjudio for AI assistants — Mjudio</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="../">Mjudio <span>— Music Studio Visualizer</span></a>
+  <nav class="pages">
+    <a href="../terms/">Terms of Service</a>
+    <a href="../privacy/">Privacy Policy</a>
+    <a href="../faq/">FAQ</a>
+    <a href="../tutorial/">Automation API</a>
+    <a href="../mcp/">AI assistants</a>
+  </nav>
+</header>
+
+<h1>Mjudio for AI assistants</h1>
+<p class="lede">Mjudio speaks the Model Context Protocol. Point Claude, Cursor or VS Code at the
+copy of Mjudio running on your Mac and ask for a video: it picks a template, takes your song,
+writes the titles and lyrics, renders the file and hands it back.</p>
+<p class="updated">Updated 9 September 2026</p>
+
+<div class="card">
+  <p><strong>Everything stays on your Mac.</strong> The MCP endpoint is the same loopback
+  server the Automation API uses. It is <strong>off until you switch it on</strong> in
+  <strong>Mjudio ▸ Settings ▸ Automation</strong>, it answers only on <code>127.0.0.1</code>,
+  and every request carries a token that screen shows you. Your audio is never uploaded
+  anywhere: rendering happens on your own GPU.</p>
+</div>
+
+<h2>On this page</h2>
+<ul>
+  <li><a href="#claude-desktop">1. Claude Desktop — one file to install</a></li>
+  <li><a href="#claude-code">2. Claude Code, Cursor and VS Code</a></li>
+  <li><a href="#folders">3. Letting an assistant reach your files</a></li>
+  <li><a href="#ask">4. What to ask for</a></li>
+  <li><a href="#tools">5. What the assistant can actually do</a></li>
+  <li><a href="#limits">6. Plans, limits and the watermark</a></li>
+  <li><a href="#trouble">7. When it does not connect</a></li>
+  <li><a href="#iphone">8. On iPhone and iPad</a></li>
+</ul>
+
+<h2 id="claude-desktop">1. Claude Desktop — one file to install</h2>
+
+<p>Claude Desktop will not connect to a plain <code>http://</code> address, even a local one,
+so Mjudio ships a small extension that bridges the gap. Download it, double-click it, and
+Claude Desktop installs it:</p>
+
+<ul>
+  <li><a href="../downloads/Mjudio.mcpb">Mjudio.mcpb</a> — the Claude Desktop extension</li>
+</ul>
+
+<p>Then, before you ask for anything:</p>
+
+<ol>
+  <li>Open <strong>Mjudio</strong> and leave it running.</li>
+  <li>In <strong>Mjudio ▸ Settings ▸ Automation</strong>, switch the local API on.</li>
+  <li>Start a new conversation in Claude Desktop. Mjudio's tools appear in the tool list.</li>
+</ol>
+
+<p>The extension asks for an address and a token, and both can be left blank: it reads them
+from Mjudio's own configuration file. Fill them in only if you changed the port.</p>
+
+<h2 id="claude-code">2. Claude Code, Cursor and VS Code</h2>
+
+<p>These connect to the address directly, so there is nothing to install. In
+<strong>Mjudio ▸ Settings ▸ Automation ▸ Agents</strong>, press <strong>Copy setup</strong>
+and pick your client. That puts a ready-made snippet on the clipboard with your own port and
+token already filled in.</p>
+
+<p><strong>Claude Code</strong> — paste the command into a terminal:</p>
+
+<pre><code>claude mcp add --transport http mjudio http://127.0.0.1:8787/mcp \
+  --header "Authorization: Bearer YOUR_TOKEN"</code></pre>
+
+<p><strong>Cursor</strong> — paste into <code>~/.cursor/mcp.json</code>:</p>
+
+<pre><code>{
+  "mcpServers": {
+    "mjudio": {
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}</code></pre>
+
+<p><strong>VS Code</strong> — paste into <code>.vscode/mcp.json</code> in your workspace:</p>
+
+<pre><code>{
+  "servers": {
+    "mjudio": {
+      "type": "http",
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}</code></pre>
+
+<p>Your token changes whenever you press <strong>Regenerate</strong> on the Automation screen.
+If a client suddenly reports 401, copy the setup again.</p>
+
+<h3>Reaching Mjudio from another machine</h3>
+
+<p>Mjudio binds loopback and nothing else, on purpose. If you genuinely need an assistant on
+another machine to reach it, tunnel to it over SSH rather than exposing the port:</p>
+
+<pre><code>ssh -N -L 8787:127.0.0.1:8787 you@your-mac.local</code></pre>
+
+<p>The assistant then connects to <code>http://127.0.0.1:8787/mcp</code> on <em>its</em> side,
+and the traffic is carried by SSH. Nothing about Mjudio's own binding changes.</p>
+
+<h2 id="folders">3. Letting an assistant reach your files</h2>
+
+<p>Mjudio is sandboxed: it can open the files you pick and no others. That is why an assistant
+cannot simply name a path on your disk and have Mjudio read it.</p>
+
+<p>To hand over a folder, open <strong>Settings ▸ Automation ▸ Shared folders</strong>, press
+<strong>Add</strong> and pick it. From then on an assistant may name files
+<strong>inside that folder and nowhere else</strong>, and it is where finished exports can be
+saved. Remove a folder on the same screen and the access goes with it.</p>
+
+<p>If you are using the Claude Desktop extension, a file outside every shared folder can still
+be sent: the extension reads it and uploads the bytes. Shared folders are what make large files
+and finished exports practical.</p>
+
+<h2 id="ask">4. What to ask for</h2>
+
+<p>Plain requests work. Some that do what you would expect:</p>
+
+<ul>
+  <li>"Make a lyric video from <code>~/Music/night-drive.m4a</code> using a lo-fi template,
+      title it Night Drive by Test Artist, then export it at 1080p."</li>
+  <li>"Here are the lyrics — sync them to the song and show me the timings."</li>
+  <li>"This is a two-hour DJ mix. Here is the tracklist from the description box: turn it into
+      chapters and add the now-playing card."</li>
+  <li>"Export it and save the file to my Videos folder."</li>
+  <li>"Give me the chapter list in the format YouTube wants."</li>
+</ul>
+
+<h2 id="tools">5. What the assistant can actually do</h2>
+
+<table>
+  <tr><th>Area</th><th>What it covers</th></tr>
+  <tr><td>Projects</td><td>List, read, create, rename, change the shape, delete</td></tr>
+  <tr><td>Templates</td><td>List them, filter by category, apply one</td></tr>
+  <tr><td>Media</td><td>Attach a song, attach cover art, trim and fade</td></tr>
+  <tr><td>Text</td><td>Set the title and artist, add lyrics as plain text, .lrc or .srt</td></tr>
+  <tr><td>Chapters</td><td>Turn a pasted tracklist into chapters and a now-playing card</td></tr>
+  <tr><td>Export</td><td>Queue a render, poll it, list finished ones, save one to a shared folder</td></tr>
+</table>
+
+<p>Deleting a project is marked destructive, so a well-behaved client asks you first. Nothing
+an assistant does bypasses the app: it is the same code the buttons run.</p>
+
+<h2 id="limits">6. Plans, limits and the watermark</h2>
+
+<p>An assistant gets exactly the plan you have. On the free plan a request for 4K comes back
+at 720p with a watermark, premium templates are refused, and the daily export allowance
+applies. Asking an assistant to "export in 4K without the watermark" does not change that —
+it is the same check the export sheet makes.</p>
+
+<h2 id="trouble">7. When it does not connect</h2>
+
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td>"Mjudio is not answering"</td><td>Mjudio is not running, or Automation is still off in Settings.</td></tr>
+  <tr><td>401, or "refused the access token"</td><td>The token has been regenerated. Copy the setup again.</td></tr>
+  <tr><td>"is not inside a shared folder"</td><td>Add that folder under Settings ▸ Automation ▸ Shared folders.</td></tr>
+  <tr><td>"open in an editor window"</td><td>The project is open in Mjudio and its autosave would overwrite the change. Close the window.</td></tr>
+  <tr><td>The tools never appear in Claude Desktop</td><td>Quit and reopen Claude Desktop after installing the extension.</td></tr>
+</table>
+
+<h2 id="iphone">8. On iPhone and iPad</h2>
+
+<p>There is no assistant connection on iOS, and it would not be honest to imply otherwise. The
+server binds loopback, which on a phone means <em>that phone</em> — nothing on your Mac or your
+network can reach it — and iOS suspends the app the moment you switch away from it.</p>
+
+<p>What does work on iOS is the <strong>Shortcuts</strong> app. Mjudio's actions appear there:
+create a video from a song, add lyrics, export. Those run on the device, and Siri can trigger
+them.</p>
+
+<h2>Still stuck?</h2>
+
+<ul>
+  <li>Email: <a href="mailto:sang89vh@icloud.com">sang89vh@icloud.com</a></li>
+  <li>Phone: <a href="tel:+84356054323">+84 356 054 323</a></li>
+</ul>
+
+<footer>
+  <p>Mjudio — Music Studio Visualizer ·
+     <a href="../terms/">Terms</a> ·
+     <a href="../privacy/">Privacy</a> ·
+     <a href="../faq/">FAQ</a> ·
+     <a href="../tutorial/">Automation API</a> ·
+     <a href="../mcp/">AI assistants</a></p>
+</footer>
+
+</div>
+</body>
+</html>
