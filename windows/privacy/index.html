@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Mjudio for Windows</title>
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="../">Mjudio <span>for Windows</span></a>
+  <nav class="pages">
+    <a href="../terms/">Terms of Service</a>
+    <a href="../privacy/">Privacy Policy</a>
+    <a href="../faq/">FAQ</a>
+  </nav>
+</header>
+
+<h1>Privacy Policy</h1>
+<p class="lede">Mjudio for Windows does not collect your personal data. Everything you do in
+the app stays on your PC.</p>
+<p class="updated">Effective 9 September 2026</p>
+
+<div class="card">
+  <p><strong>The short version.</strong> Mjudio has no user accounts, no servers and no
+  tracking. Your audio files, images, lyrics and finished videos never leave your computer.
+  We cannot see them, because there is nowhere for them to go.</p>
+</div>
+
+<h2>1. Information we collect</h2>
+<p><strong>None.</strong> Mjudio does not ask for your name, email address, phone number or
+any other identifying information. There is no sign-up and no account.</p>
+
+<h2>2. Your media stays on your device</h2>
+<p>Mjudio is an offline application. The audio you import, the images and video you add, the
+lyrics you write and the videos you export are all read, processed and written locally on
+your PC. None of it is uploaded, transmitted or backed up to us or to anyone else.</p>
+<p>Mjudio only opens files you choose yourself, through a file picker or by dragging them
+into the window. It does not search your disk and it does not index your music library.</p>
+
+<h2>3. Usage statistics stay on your device too</h2>
+<p>Mjudio records a small local diagnostic log, written as one JSON line per event to
+<code>analytics.jsonl</code> inside the app's own folder at <code>%APPDATA%\Mjudio</code>.</p>
+<p>This log is <strong>never transmitted</strong>. It is not sent to us, and it is not shared
+with any analytics provider. It exists so that you can inspect it if you want to. You can turn
+the recording off entirely in <strong>Settings</strong>, and deleting that folder removes it.</p>
+<p>What it records is technical, not personal: that the app was opened; that a project was
+created and from which built-in template; that a layer of a given kind was added; that audio of
+a given length and file type was imported; and that an export started, finished or failed, with
+its resolution, frame rate, codec and elapsed time. It does not contain your audio, your images,
+your lyrics or any text you typed.</p>
+<p>One case is worth stating precisely rather than glossing over: when an export
+<em>fails</em>, the log records the error message the failure produced, and a Windows error
+message about a file <strong>can include that file's name and path</strong> — for example if a
+song was moved or a disk filled up. That line still never leaves your PC, and switching the
+recording off in Settings stops it being written at all.</p>
+
+<h2>4. Network activity</h2>
+<p>Mjudio makes <strong>no network requests</strong> — not to us, and not to anyone else. There
+is no update checker, no telemetry endpoint, no online catalog and no advertising. The app is
+fully functional with no internet connection, and behaves identically whether or not you have
+one.</p>
+<p>Mjudio does contain one network feature, and it is <em>incoming</em>, local, and off until
+you switch it on: the optional automation API. When you enable it in Settings, Mjudio listens on
+a port on <code>127.0.0.1</code> so that a script running on the same PC can drive the app.
+<code>127.0.0.1</code> is your own machine and nothing else — the listener is not reachable from
+your network or from the internet, and it sends nothing anywhere.</p>
+
+<h2>5. Payments</h2>
+<p>There are none. Mjudio for Windows is free, with no in-app purchases and no subscription,
+so the app never handles payment details of any kind.</p>
+
+<h2>6. Data sharing</h2>
+<p>We do not sell, rent, trade or share your data, because we do not collect any.</p>
+<p>Mjudio contains no third-party advertising, no third-party analytics SDKs and no social
+media trackers.</p>
+
+<h2>7. Children</h2>
+<p>Mjudio is suitable for general audiences and does not knowingly collect information from
+anyone, including children.</p>
+
+<h2>8. Changes to this policy</h2>
+<p>If a future version of Mjudio adds a feature that requires transmitting data — for
+example an online template library — this policy will be updated before that version is
+released, and the effective date above will change. Continued use of a new version after such
+an update means you accept the revised policy.</p>
+
+<h2>9. Contact</h2>
+<p>Questions about this policy, or about privacy in Mjudio:</p>
+<ul>
+  <li>Email: <a href="mailto:sang89vh@icloud.com">sang89vh@icloud.com</a></li>
+  <li>Phone: <a href="tel:+84356054323">+84 356 054 323</a></li>
+</ul>
+
+<footer>
+  <p>Mjudio for Windows ·
+     <a href="../terms/">Terms</a> ·
+     <a href="../privacy/">Privacy</a> ·
+     <a href="../faq/">FAQ</a></p>
+</footer>
+
+</div>
+</body>
+</html>
