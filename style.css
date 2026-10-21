@@ -63,3 +63,15 @@ nav.pages { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.6
 nav.pages a { font-size: 0.925rem; }
 footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; }
 footer a { color: var(--accent); }
+/* A call-to-action link. Text uses --bg so it keeps contrast in both themes:
+   white on the light theme's accent, near-black on the dark theme's lighter accent. */
+a.button {
+  display: inline-block;
+  padding: 0.6rem 1.15rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.button:hover { filter: brightness(1.08); }

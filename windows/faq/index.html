@@ -20,7 +20,7 @@
 
 <h1>Frequently Asked Questions</h1>
 <p class="lede">Turning an audio file into a music visualizer or lyric video on your PC.</p>
-<p class="updated">Updated 9 September 2026</p>
+<p class="updated">Updated 21 October 2026</p>
 
 <h2>Getting started</h2>
 
@@ -57,8 +57,9 @@ written in the background — you can line up several and carry on using the app
 run.</p>
 
 <h3>What happens if my PC shuts down mid-export?</h3>
-<p>Exports are written in segments and checkpointed as they go, so an interrupted export can
-resume from the last completed segment rather than starting over.</p>
+<p>The export that was running stops and has to be done again. The next time you open
+Mjudio, the export queue lists it as interrupted and deletes the unfinished video file, so no
+broken file is left behind. Submit the export again and it starts from the beginning.</p>
 
 <h3>Does the exported video look the same as the preview?</h3>
 <p>Yes. The preview and the exported file are produced by the same rendering code, so what you
@@ -77,9 +78,23 @@ your PC, and the app makes no network requests at all. See the
 is never transmitted anywhere. You can switch it off in <strong>Settings</strong>. The
 <a href="../privacy/">Privacy Policy</a> lists exactly what goes in it.</p>
 
-<h3>Where does Mjudio keep my projects?</h3>
-<p>In <code>%APPDATA%\Mjudio\Projects</code>. Uninstalling the app leaves that folder alone, so
-your work survives an uninstall or a reinstall.</p>
+<h3 id="projects">Where does Mjudio keep my projects?</h3>
+<p>It depends on how you installed Mjudio.</p>
+<ul>
+  <li><strong>With the installer from this website:</strong> in
+      <code>%APPDATA%\Mjudio\Projects</code>. Uninstalling leaves that folder alone, so your
+      work survives an uninstall or a reinstall.</li>
+  <li><strong>From the Microsoft Store, on a PC where the installer version's
+      <code>%APPDATA%\Mjudio</code> folder already exists:</strong> Mjudio keeps using it, and
+      uninstalling leaves it alone too.</li>
+  <li><strong>From the Microsoft Store, on any other PC:</strong> Windows keeps your projects
+      in the Store app's private folder and <strong>deletes them when you uninstall the
+      app</strong>. To keep them, copy this folder somewhere safe before uninstalling. Paste
+      the path into File Explorer's address bar to open it:</li>
+</ul>
+<pre><code>%LOCALAPPDATA%\Packages\SSGTeam.Mjudio-MusicVisualizer_ys032at6edymg\LocalCache\Roaming\Mjudio\Projects</code></pre>
+<p>Exported videos are not affected. They are saved wherever you choose, your Videos folder
+by default.</p>
 
 <h3>Why does the app say my audio file is missing?</h3>
 <p>Because a file it was using was moved, renamed or deleted, or is on a drive that is not
