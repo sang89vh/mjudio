@@ -15,12 +15,13 @@
     <a href="../terms/">Terms of Service</a>
     <a href="../privacy/">Privacy Policy</a>
     <a href="../faq/">FAQ</a>
+    <a href="../automation/">Automation &amp; AI</a>
   </nav>
 </header>
 
 <h1>Frequently Asked Questions</h1>
 <p class="lede">Turning an audio file into a music visualizer or lyric video on your PC.</p>
-<p class="updated">Updated 21 October 2026</p>
+<p class="updated">Updated 22 October 2026</p>
 
 <h2>Getting started</h2>
 
@@ -64,6 +65,23 @@ broken file is left behind. Submit the export again and it starts from the begin
 <h3>Does the exported video look the same as the preview?</h3>
 <p>Yes. The preview and the exported file are produced by the same rendering code, so what you
 see while editing is what gets written to disk.</p>
+
+<h2>Automation</h2>
+
+<h3>Can an AI assistant make videos for me?</h3>
+<p>Yes, from version 1.0.4 through the Microsoft Store. Mjudio speaks the Model Context Protocol
+(MCP), so an assistant such as Claude Code can create a project, add your song and lyrics, render
+the video and save it where you ask. Switch it on in <strong>Settings ▸ Automation</strong>, press
+<strong>Copy MCP config</strong> and give that to your assistant. It answers only on your own PC
+and needs a token for every request. See
+<a href="../automation/">Automation and AI assistants</a>.</p>
+
+<h3>Is there a ready-made pipeline for a YouTube channel?</h3>
+<p>Yes: <a href="https://github.com/sang89vh/auto-eliza-m">auto-eliza-m</a>, a free, open-source
+kit (MIT licence) by the same author. It turns a list of seed songs into long-form music videos on
+YouTube, using OpenAI and Suno to make the tracks and Mjudio to render them. It is a separate
+project, not part of Mjudio, and generating and uploading content is subject to the terms of Suno,
+YouTube and OpenAI. <a href="../automation/#youtube">Set it up with Mjudio for Windows</a>.</p>
 
 <h2>Privacy and your files</h2>
 
@@ -111,7 +129,8 @@ connected. Open the project and point it at the file again to relink it.</p>
   <p>Mjudio for Windows ·
      <a href="../terms/">Terms</a> ·
      <a href="../privacy/">Privacy</a> ·
-     <a href="../faq/">FAQ</a></p>
+     <a href="../faq/">FAQ</a> ·
+     <a href="../automation/">Automation &amp; AI</a></p>
 </footer>
 
 </div>

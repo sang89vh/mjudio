@@ -15,13 +15,14 @@
     <a href="../terms/">Terms of Service</a>
     <a href="../privacy/">Privacy Policy</a>
     <a href="../faq/">FAQ</a>
+    <a href="../automation/">Automation &amp; AI</a>
   </nav>
 </header>
 
 <h1>Privacy Policy</h1>
 <p class="lede">Mjudio for Windows does not collect your personal data. Everything you do in
 the app stays on your PC.</p>
-<p class="updated">Effective 9 September 2026</p>
+<p class="updated">Effective 22 October 2026</p>
 
 <div class="card">
   <p><strong>The short version.</strong> Mjudio has no user accounts, no servers and no
@@ -38,7 +39,10 @@ any other identifying information. There is no sign-up and no account.</p>
 lyrics you write and the videos you export are all read, processed and written locally on
 your PC. None of it is uploaded, transmitted or backed up to us or to anyone else.</p>
 <p>Mjudio only opens files you choose yourself, through a file picker or by dragging them
-into the window. It does not search your disk and it does not index your music library.</p>
+into the window. The one exception is the optional automation feature (section 4): once you
+switch it on, a script or AI assistant on your PC that holds your token can ask Mjudio to import
+an audio or image file by its path, and to save a finished video to a folder it names. Mjudio
+does not search your disk and it does not index your music library.</p>
 
 <h2>3. Usage statistics stay on your device too</h2>
 <p>Mjudio records a small local diagnostic log, written as one JSON line per event to
@@ -64,9 +68,14 @@ fully functional with no internet connection, and behaves identically whether or
 one.</p>
 <p>Mjudio does contain one network feature, and it is <em>incoming</em>, local, and off until
 you switch it on: the optional automation API. When you enable it in Settings, Mjudio listens on
-a port on <code>127.0.0.1</code> so that a script running on the same PC can drive the app.
+a port on <code>127.0.0.1</code> so that a script running on the same PC — or, from version
+1.0.4, an AI assistant connected through the Model Context Protocol — can drive the app.
 <code>127.0.0.1</code> is your own machine and nothing else — the listener is not reachable from
 your network or from the internet, and it sends nothing anywhere.</p>
+<p>The program you connect is not part of Mjudio. Mjudio answers it with what it asks about —
+for example a project's name, its lyrics, or the path of a saved video — and what that program
+does next is up to it. An AI assistant may send those answers to its own online service, under
+that assistant's privacy policy, not this one. Connect only programs you trust.</p>
 
 <h2>5. Payments</h2>
 <p>There are none. Mjudio for Windows is free, with no in-app purchases and no subscription,

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation and AI assistants — Mjudio for Windows</title>
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="../">Mjudio <span>for Windows</span></a>
+  <nav class="pages">
+    <a href="../terms/">Terms of Service</a>
+    <a href="../privacy/">Privacy Policy</a>
+    <a href="../faq/">FAQ</a>
+    <a href="../automation/">Automation &amp; AI</a>
+  </nav>
+</header>
+
+<h1>Automation and AI assistants</h1>
+<p class="lede">Let a script or an AI assistant make videos with Mjudio for Windows: create a
+project, give it a song, set the words, render the video and save it, without touching the app
+window.</p>
+<p class="updated">Updated 22 October 2026</p>
+
+<div class="card">
+  <p><strong>Everything stays on your PC.</strong> Automation is <strong>off until you switch it
+  on</strong>. When it is on, Mjudio answers only on <code>127.0.0.1</code>, which is your own
+  computer and nothing else: not your network, not the internet. Every request has to carry a
+  token that only you can see in Settings. Nothing is uploaded anywhere; your songs, images and
+  videos are read and rendered on your own PC.</p>
+</div>
+
+<h2>On this page</h2>
+<ul>
+  <li><a href="#turn-it-on">1. Turn it on</a></li>
+  <li><a href="#connect">2. The address and the token</a></li>
+  <li><a href="#mcp">3. AI assistants (MCP)</a></li>
+  <li><a href="#ask">4. What to ask for</a></li>
+  <li><a href="#tools">5. What an assistant can do</a></li>
+  <li><a href="#paths">6. Files and paths</a></li>
+  <li><a href="#scripts">7. Scripts: the REST API</a></li>
+  <li><a href="#youtube">8. A YouTube channel pipeline: auto-eliza-m</a></li>
+  <li><a href="#trouble">9. When it does not work</a></li>
+  <li><a href="#safety">10. Staying safe</a></li>
+</ul>
+
+<h2 id="turn-it-on">1. Turn it on</h2>
+
+<ol>
+  <li>Open Mjudio and press the gear button on the Home screen to open
+      <strong>Settings</strong>.</li>
+  <li>Choose the <strong>Automation</strong> tab and tick <strong>Enable the local REST
+      API</strong>. That one switch starts everything on this page: the API for scripts and,
+      from version 1.0.4, the endpoint for AI assistants.</li>
+  <li>The <strong>Status</strong> row then shows the address Mjudio is listening on, normally:</li>
+</ol>
+
+<pre><code>http://127.0.0.1:8787</code></pre>
+
+<p>The same tab has the <strong>Port</strong> (8787 unless you type another number and press
+<strong>Apply</strong>), the <strong>Token</strong> (<strong>Show</strong>, <strong>Copy</strong>
+and <strong>Regenerate</strong>; regenerating locks out every script and assistant still using
+the old token) and <strong>Config file ▸ Reveal</strong>, which opens the folder holding
+<code>endpoint.json</code>. Untick the switch and the server stops.</p>
+
+<h2 id="connect">2. The address and the token</h2>
+
+<p>While the server runs, Mjudio writes its address and token to a file called
+<code>endpoint.json</code>. Scripts should read them from there rather than hard-code them,
+because the port can change. Where the file is depends on how you installed Mjudio:</p>
+
+<ul>
+  <li><strong>The installer from this website</strong>, or <strong>the Microsoft Store on a PC that
+      had the installer version first</strong>:</li>
+</ul>
+<pre><code>%APPDATA%\Mjudio\Automation\endpoint.json</code></pre>
+<ul>
+  <li><strong>The Microsoft Store on any other PC:</strong></li>
+</ul>
+<pre><code>%LOCALAPPDATA%\Packages\SSGTeam.Mjudio-MusicVisualizer_ys032at6edymg\LocalCache\Roaming\Mjudio\Automation\endpoint.json</code></pre>
+
+<p>Windows keeps a Store app's new AppData folders in the app's own private copy, and only
+Mjudio itself sees that file at the <code>%APPDATA%</code> path. <strong>Settings ▸ Automation ▸
+Reveal</strong> always opens the real one. This PowerShell finds the newest copy:</p>
+
+<pre><code>$endpoint = @(Get-ChildItem "$env:LOCALAPPDATA\Packages\*\LocalCache\Roaming\Mjudio\Automation\endpoint.json",
+                            "$env:APPDATA\Mjudio\Automation\endpoint.json" -ErrorAction SilentlyContinue) |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$cfg = Get-Content $endpoint.FullName -Raw | ConvertFrom-Json   # $cfg.baseURL, $cfg.token</code></pre>
+
+<p>The file is deleted when the server stops or Mjudio quits, but a crash can leave it behind.
+Treat a refused connection, not a missing file, as the sign that Mjudio is not running.</p>
+
+<h2 id="mcp">3. AI assistants (MCP)</h2>
+
+<p>From <strong>version 1.0.4</strong>, through the Microsoft Store, Mjudio also speaks the
+<a href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) at one more address on
+the same server:</p>
+
+<pre><code>http://127.0.0.1:8787/mcp</code></pre>
+
+<p>It uses the same switch, port and token as the scripting API. While the server is running,
+<strong>Settings ▸ Automation</strong> shows an <strong>MCP endpoint</strong> row with this
+address and a <strong>Copy MCP config</strong> button. The copied text contains your token, so
+keep it as private as the token itself, and copy it again after <strong>Regenerate</strong> or a
+port change. The installer on this website (version 1.0.2) has the scripting API but not this
+endpoint.</p>
+
+<p>Mjudio answers both the current revision of the protocol (2026-07-28) and the earlier
+revisions that start with a handshake (2025-03-26 to 2025-11-25), so newer and older clients can
+both connect.</p>
+
+<h3>Claude Code</h3>
+
+<p>Tested with Claude Code 2.1.307, which then reports the server as connected. Replace
+<code>YOUR_TOKEN</code> with the token from Settings (<strong>Show</strong>, then
+<strong>Copy</strong>):</p>
+
+<pre><code>claude mcp add --transport http mjudio http://127.0.0.1:8787/mcp --header "Authorization: Bearer YOUR_TOKEN"
+claude mcp get mjudio</code></pre>
+
+<h3>Cursor, or a project's .mcp.json</h3>
+
+<p>This is what <strong>Copy MCP config</strong> puts on the clipboard. It is the shape Cursor's
+<code>mcp.json</code> and a Claude Code project's <code>.mcp.json</code> read. Not tested yet with
+either file; the command above was tested.</p>
+
+<pre><code>{
+  "mcpServers": {
+    "mjudio": {
+      "type": "http",
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}</code></pre>
+
+<h3>VS Code</h3>
+
+<p>VS Code reads <code>.vscode/mcp.json</code>, which puts the same entry under a
+<code>servers</code> root. Not tested yet.</p>
+
+<pre><code>{
+  "servers": {
+    "mjudio": {
+      "type": "http",
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}</code></pre>
+
+<h3>Claude Desktop</h3>
+
+<p>Claude Desktop starts local programs from its configuration file and has no entry for an
+address like this one, so it needs a small local bridge program in between. That has not been
+tested with Mjudio for Windows yet. The <code>Mjudio.mcpb</code> extension on this site's
+downloads page does not work with the Windows app.</p>
+
+<p>Use <code>127.0.0.1</code>, not <code>localhost</code>, in every client: Mjudio listens on
+<code>127.0.0.1</code> only, and some clients try another address first when given
+<code>localhost</code>.</p>
+
+<h2 id="ask">4. What to ask for</h2>
+
+<p>Plain requests work. An assistant needs full paths on this PC, such as
+<code>C:\Users\you\Music\song.mp3</code>, not just a file name.</p>
+
+<ul>
+  <li>"Make a lyric video from <code>C:\Users\you\Music\night-drive.mp3</code> with a lo-fi
+      template, in portrait 9:16 for Shorts."</li>
+  <li>"Change the title text to <em>Night Drive — Test Artist</em>."</li>
+  <li>"Add these lyrics to the project: …"</li>
+  <li>"Use <code>C:\Users\you\Pictures\cover.jpg</code> as the background."</li>
+  <li>"Export it at 1080p, wait until it finishes, and save the video to
+      <code>C:\Users\you\Videos</code>."</li>
+</ul>
+
+<h2 id="tools">5. What an assistant can do</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Area</th><th>Tools</th><th>What they do</th></tr>
+  <tr><td>Status</td><td><code>get_health</code>, <code>list_templates</code></td>
+      <td>Whether Mjudio can render right now; the built-in templates</td></tr>
+  <tr><td>Projects</td><td><code>list_projects</code>, <code>get_project</code>,
+      <code>create_project</code>, <code>update_project</code>, <code>delete_project</code></td>
+      <td>List and read projects; create one from a template in 16:9, 9:16 or 1:1; rename it,
+      change its shape, re-apply a template, trim and fade the audio; delete it</td></tr>
+  <tr><td>Media and text</td><td><code>set_audio</code>, <code>set_artwork</code>,
+      <code>set_lyrics</code></td>
+      <td>Add the music from a file; set a full-screen background image from a file; add lyrics
+      as plain text, <code>.lrc</code> or <code>.srt</code> text</td></tr>
+  <tr><td>Layers</td><td><code>update_layer</code></td>
+      <td>Rename a layer, hide or show it, change its opacity, or replace the words of a text
+      layer</td></tr>
+  <tr><td>Exports</td><td><code>create_export</code>, <code>wait_for_export</code>,
+      <code>get_export</code>, <code>list_exports</code>, <code>save_export</code>,
+      <code>delete_export</code></td>
+      <td>Render an MP4 at 720p, 1080p, 1440p or 2160p (4K), 30 or 60 fps; wait for it; copy the
+      video to a folder you choose; remove Mjudio's own copy</td></tr>
+</table>
+</div>
+
+<p>Layer position and size, keyframes, colours and effects are not available to an assistant:
+design those in a template in the app, then have the assistant apply the template. Tools that
+change or delete things say so, so an assistant that asks before acting will ask you first. A
+project that is open in Mjudio's editor can be read but not changed until you open a different
+project there.</p>
+
+<h2 id="paths">6. Files and paths</h2>
+
+<ul>
+  <li><strong>Full local paths only</strong>, such as <code>C:\Users\you\Music\song.mp3</code>.
+      A relative path is refused.</li>
+  <li><strong>Network and device paths are refused</strong> (<code>\\server\share\…</code>,
+      <code>\\?\…</code>) before Mjudio touches anything: opening a network path would make
+      Windows offer your sign-in credentials to that computer.</li>
+  <li><strong>Music:</strong> MP3, WAV, M4A, AAC or FLAC (<code>.mp3</code>, <code>.wav</code>,
+      <code>.wave</code>, <code>.m4a</code>, <code>.aac</code>, <code>.flac</code>), up to
+      512 MB. <strong>Images:</strong> PNG, JPEG, BMP, GIF or TIFF, up to 512 MB.</li>
+  <li>Mjudio reads your file and keeps its own copy. It never changes or deletes yours.</li>
+  <li><strong>Saving a video</strong> copies the finished MP4 into a folder that already exists
+      (keeping the video's file name), or to a path ending in <code>.mp4</code> whose folder
+      exists. It replaces an existing file only if you ask for that. Mjudio keeps its own copy
+      until <code>delete_export</code> removes it.</li>
+</ul>
+
+<h2 id="scripts">7. Scripts: the REST API</h2>
+
+<p>Anything an assistant does, a script can do with plain HTTP requests that carry
+<code>Authorization: Bearer &lt;token&gt;</code>. In PowerShell, after reading
+<code>endpoint.json</code> as shown in <a href="#connect">section 2</a>:</p>
+
+<pre><code>$headers = @{ Authorization = "Bearer $($cfg.token)" }
+Invoke-RestMethod "$($cfg.baseURL)/v1/health" -Headers $headers</code></pre>
+
+<p>The <a href="../../tutorial/">Automation API</a> page walks through a whole video, step by
+step, and lists every endpoint. The requests and responses are the same on Windows, with four
+differences:</p>
+
+<ul>
+  <li>Mjudio for Windows is completely free: there are no plan limits and no watermark, so that
+      page's section on plans does not apply.</li>
+  <li><code>endpoint.json</code> is in the places listed in <a href="#connect">section 2</a>, not
+      where that page's examples look for it.</li>
+  <li>Music must be MP3, WAV, M4A, AAC or FLAC.</li>
+  <li>Videos are always written as H.264, even when a request asks for another codec.</li>
+</ul>
+
+<h2 id="youtube">8. A YouTube channel pipeline: auto-eliza-m</h2>
+
+<p><a href="https://github.com/sang89vh/auto-eliza-m">auto-eliza-m</a> is a free, open-source
+kit (MIT licence) that turns a list of seed songs into long-form music videos on YouTube. It
+writes prompts with OpenAI, generates the tracks on Suno, has Mjudio render each track into a
+music-visualizer video through the automation API, merges everything with ffmpeg, and uploads
+the result.</p>
+
+<pre><code>seed songs  →  OpenAI  →  Suno  →  Mjudio  →  ffmpeg  →  YouTube</code></pre>
+
+<p>It comes with two pipelines: <strong>sleeppiano</strong>, a roughly two-hour instrumental
+piano sleep-music video, and <strong>vietcafe</strong>, chill Vietnamese café music with vocals,
+for which OpenAI also writes an original Vietnamese lyric. Each is resumable at every step.</p>
+
+<p>What it needs, as its README lists:</p>
+<ul>
+  <li>Node.js 22.13 or newer</li>
+  <li>ffmpeg and ffprobe on your <code>PATH</code></li>
+  <li>Mjudio, running, with <strong>Settings ▸ Automation</strong> switched on</li>
+  <li>An OpenAI API key</li>
+  <li>A Suno account (its Studio downloads need Suno's Premier plan) and a YouTube channel</li>
+</ul>
+
+<p><strong>If you installed Mjudio from the Microsoft Store</strong> on a PC that never had the
+installer version, add this line to the pipeline's <code>.env</code> file. The kit looks for
+<code>endpoint.json</code> under <code>%APPDATA%</code> by default, and it understands
+<code>~</code> in a path but not <code>%LOCALAPPDATA%</code>:</p>
+
+<pre><code>MVM_ENDPOINT_FILE=~/AppData/Local/Packages/SSGTeam.Mjudio-MusicVisualizer_ys032at6edymg/LocalCache/Roaming/Mjudio/Automation/endpoint.json</code></pre>
+
+<p>Start Mjudio yourself before a run as well: the kit's daily schedule script only knows how to
+launch the installer version.</p>
+
+<p>auto-eliza-m is a separate project by the same author. It is not part of Mjudio and is not
+covered by Mjudio's terms. Generating and uploading content is subject to the terms of Suno,
+YouTube and OpenAI; use it only with accounts you own.</p>
+
+<h2 id="trouble">9. When it does not work</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td>Mjudio is not answering, or the connection is refused</td>
+      <td>Mjudio is not running, or <strong>Enable the local REST API</strong> is still off.</td></tr>
+  <tr><td><code>401</code>, or the token is refused</td>
+      <td>The token was regenerated. Copy the MCP config or the token again.</td></tr>
+  <tr><td><code>403</code></td>
+      <td>The request came from a web page, or was sent to a host name Mjudio does not accept.
+      Use <code>http://127.0.0.1:8787/mcp</code>, or your own port.</td></tr>
+  <tr><td><code>project_open_in_editor</code></td>
+      <td>That project is loaded in Mjudio's editor, which would overwrite the change. Open a
+      different project in Mjudio, then ask again.</td></tr>
+  <tr><td><code>path_not_allowed</code></td>
+      <td>A network path, a device path or a relative path. Give a full local path such as
+      <code>C:\Users\you\Music\song.mp3</code>.</td></tr>
+  <tr><td><code>file_not_found</code> or <code>unsupported_audio_format</code></td>
+      <td>Check the path, and use MP3, WAV, M4A, AAC or FLAC.</td></tr>
+  <tr><td>The tools never appear in the assistant</td>
+      <td>Start a new conversation, or restart the assistant, after adding the server. For
+      Claude Code, <code>claude mcp get mjudio</code> should say <em>Connected</em>.</td></tr>
+</table>
+</div>
+
+<h2 id="safety">10. Staying safe</h2>
+
+<p>Whatever holds the token can, through these tools, make Mjudio read any music or image file
+you can read, and write <code>.mp4</code> files wherever you can write. That is no more than a
+program on your PC could already do, but an AI assistant can be steered by what it reads, such as
+a web page or a document. So prefer assistants that ask before running a tool, and keep the
+token private. If it may have leaked, press <strong>Regenerate</strong> in Settings; every
+script and assistant then needs the new one.</p>
+
+<h2>Still stuck?</h2>
+<div class="card">
+  <p>Email <a href="mailto:sang89vh@icloud.com">sang89vh@icloud.com</a> or call
+  <a href="tel:+84356054323">+84 356 054 323</a>. Tell us your Mjudio version, the assistant or
+  script you were using, and the message you saw.</p>
+</div>
+
+<footer>
+  <p>Mjudio for Windows ·
+     <a href="../terms/">Terms</a> ·
+     <a href="../privacy/">Privacy</a> ·
+     <a href="../faq/">FAQ</a> ·
+     <a href="../automation/">Automation &amp; AI</a></p>
+</footer>
+
+</div>
+</body>
+</html>
